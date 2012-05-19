@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-common.xml,v 1.4 2004/03/09 15:14:32 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined some base task to build and package java application:
+		'build' for compile source code,and
+		'jar' and 'war'  for generate .jar and .war file
+	
+	Notes:
+		Don't run these task immediately,please create your build.xml
+		in your project,then define some targetes to call these.
+		You can reference the file under the project which generated
+		by the task defind in 'build-newapp.xml' file.
+-->
+
+<project name="build-common" default="usage">
+	
+	<!--load properties-->
+	<property file="ant.properties"/>
+	<property file="default-build.properties"/>
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" 
+		description="Print Ant build file usage information">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ant    usage          Show this usage information.    +</echo>
+		<echo>+ ant    clean-java     Delete build and log files.     +</echo>
+		<echo>+ ant    clean-j2ee     Delete build and log files.     +</echo>
+		<echo>+ ant    build          Compile source code.            +</echo>
+		<echo>+ ant    jar            Generate jar file.              +</echo>
+		<echo>+ ant    war            Generate war file.              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Notes:                                                +</echo>
+		<echo>+ This build file DO NOT call immediately,              +</echo>
+		<echo>+ Please create your build.xml in your project,         +</echo>
+		<echo>+ Then define some targetes to call these.              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+	</target>
+
+	<!-- Path -->
+	<path id="project.class.path">
+		<pathelement path="${java.class.path}" />
+		<pathelement location="${app.build.classes}" />
+	    <fileset dir="${app.lib.dir}">
+			<include name="**/*.jar" />
+			<include name="**/*.zip" />
+		</fileset>
+	</path>
+	
+	<!-- ============================================== -->
+	<!-- Initialization                                 -->
+	<!-- ============================================== -->
+	<target name="-init"
+		depends="-build.properties.missing"
+		description="Initialize for the project.">
+		
+		<tstamp />
+		<!--<property file="app.properties"/>-->
+		
+		<ant antfile="build-newapp.xml" target="-create-dir-java"/>
+		<mkdir dir="${app.src.java}/${app.package.dir}"/>
+		<mkdir dir="${app.src.test}/${app.package.dir}"/>
+	</target>
+
+	<!-- ===========================================================
+		|| app.name is supplied in build.properties, so we check to 
+		|| see if it has been defined 
+	=============================================================-->
+	<target name="-build.properties.missing" unless="app.name">
+    	<fail>
+    	    || -----------------------------------------------------
+    	    || Missing 'build.properties' file in current directory:
+    	    ||    '${app.base.dir}'
+    	    || Please create it first!
+    	    || -----------------------------------------------------
+	    </fail>
+	</target>
+	
+	<!-- ============================================== -->
+	<!-- Clean build and log files.                     -->
+	<!-- ============================================== -->
+	<target name="clean-java" depends="-init"
+		description="Clean all files in build,dist,doc/api,log,etc.">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Cleaning--will DELETE these directories and files:    +</echo>
+		<echo message="+ ${app.build.dir}"/>
+		<echo message="+ ${app.log.runtime}"/>
+		<echo message="+ ${app.log.buildtime}"/>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		<delete includeEmptyDirs="true" quiet="true">
+			<fileset dir="${app.build.dir}/" />
+			<fileset dir="${app.log.runtime}/" />
+			<fileset dir="${app.log.buildtime}/" />
+			<!-- Add other directory or files here -->
+		</delete>
+	</target>
+
+	<!-- ============================================== -->
+	<!-- Build srouce code                              -->
+	<!-- ============================================== -->	
+	<target name="build" depends="-init" 
+		description="Build source code and copy configuration files
+		to ${app.build.classes}">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Building                                              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		<!--javac-->
+		<!--fork="true"-->
+		<javac destdir="${app.build.classes}" debug="on">
+            <src path="${app.src.java}" />
+            <src path="${app.src.test}" />
+			<classpath refid="project.class.path" />
+			<include name="**/*.java" />
+		</javac>
+		<!-- Copy configuration files to ${build.class.dir} -->
+		<copy todir="${app.build.classes}" overwrite="true" >
+        	<fileset dir="${app.src.hibernate}" includes="**/*.xml" />
+        	<fileset dir="${app.conf.dir}">
+                <include name="**/*.xml" />
+                <include name="**/*.properties" />
+            </fileset>            
+            <fileset dir="${app.src.dir}">
+                <include name="*.properties" />
+            </fileset>
+        </copy>       
+		<!--build count-->
+		<buildnumber file="${app.doc.dir}/build.number" />			
+	</target>
+	
+	<!-- ============================================== -->
+	<!-- Generate jar file                              -->
+	<!-- ============================================== -->		
+	<target name="jar"
+		depends="build"
+		description="Generate jar file without junit test files.">
+		
+		<!--define properties and directory-->
+		<property name="jar.name" value="${app.release.name}.jar"/>
+		<property name="jar.dist.dir" value="${app.dist.dir}/${DSTAMP}"/>
+		<mkdir dir="${jar.dist.dir}"/>
+			
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+  Generating jar file:                                 +</echo>
+		<echo>+  ${jar.name}                                          +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>	
+		<!--Jar-->
+        <jar basedir     = "${app.build.classes}"
+             excludes    = "**/*.java,**/package.html,**/*Test.class"
+             jarfile     = "${jar.dist.dir}/${jar.name}"
+             update      = "false"
+             index       = "true"
+             description = "Skyinn ${app.name}-${app.version} Classes package">
+             <zipfileset dir="${app.build.classes}">
+             	<exclude name="**/*Test.class"/>
+             	<include name="**/*.class"/>
+             	<include name="**/*.hbm.xml"/>
+             	<!--Resource boundler property file-->
+             	<include name="${app.package.dir}/**/*.properties"/>
+             <!--Add any files you want to import in jar file such as some 
+             	  configuation files. -->
+			</zipfileset>
+        </jar>
+        <!--copy jar file to ${app.lib.runtime} directory-->
+        <copy todir="${app.lib.runtime}" overwrite="true" 
+        	  file="${jar.dist.dir}/${jar.name}"/>
+	</target>
+	
+	<!-- ***************************J2EE ******************************* -->
+
+	<!-- ============================================== -->
+	<!-- Initialization                                 -->
+	<!-- ============================================== -->
+	<target name="-init-j2ee"
+		depends="-build.properties.missing"
+		description="Initialize for web project.">
+		<tstamp />
+        <ant antfile="build-newapp.xml" target="-create-dir-j2ee"/>
+		<mkdir dir="${app.src.java}/${app.package.dir}"/>
+		<mkdir dir="${app.src.test}/${app.package.dir}"/>
+		<!-- Set 'webxml.exist' to TRUE if the 'web.xml' file existed. -->
+		<available file="${app.web.webinf}/web.xml" property="webxml.exist"/>
+		<echo message="${app.web.webinf}/web.xml  ${webxml.exist}"/>
+	</target>
+
+	<!-- ===========================================================
+		|| 'web.xml' file must existed in WEB-INF directory,
+		|| if didn't exist,the 'war' target will fail...
+	=============================================================-->
+	<target name="-webxml.missing" unless="webxml.exist">
+		<fail>
+    	    || -----------------------------------------------------
+    	    || Missing 'web.xml' file in WEB-INF directory:
+    	    ||    '${app.web.webinf}'
+    	    || Please create it first!
+    	    || -----------------------------------------------------
+        </fail>
+	</target>
+
+	<!-- ============================================== -->
+	<!-- Clean build and log files.                     -->
+	<!-- ============================================== -->
+	<target name="clean-j2ee" depends="-init"
+		description="Clean all files in build,log directories.">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Cleaning--will DELETE these directories and files:    +</echo>
+		<echo message="+ ${app.build.dir}"/>
+		<echo message="+ ${app.log.runtime}"/>
+		<echo message="+ ${app.log.buildtime}"/>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		<antcall target="-clean-java" />
+		<ant antfile="build-newapp.xml" target="-create-dir-j2ee"/>
+		<delete includeEmptyDirs="true" quiet="true">
+			<fileset dir="${app.webinf.dir}/classes" />
+			<!-- Add other directory or files here -->
+		</delete>
+	</target>
+
+	<!-- ============================================== -->
+	<!-- Generate war file                              -->
+	<!-- ============================================== -->		
+	<target name="war"
+		depends="-init-j2ee,-webxml.missing"
+		description="Generate war file.">
+        
+        <!--define properties and directory-->
+		<property name="war.name" value="${app.release.name}.war"/>
+		<property name="war.dist.dir" value="${app.dist.dir}/${DSTAMP}"/>
+		<mkdir dir="${war.dist.dir}"/>		
+		
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Generating war file:                                  +</echo>
+		<echo>+  ${war.name}                                          +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+              
+        <antcall target="jar"/>
+        
+        <war destfile="${war.dist.dir}/${war.name}"
+             webxml="${app.web.webinf}/web.xml">
+            <fileset dir="${app.web.dir}">
+                <include name="**/*"/>
+                <exclude name="**/WEB-INF/**/*" />
+            </fileset>
+			
+			<!-- /WEB-INF/ most are configuration files. -->
+            <webinf dir="${app.web.webinf}">
+    			<include name="**/*" />
+                <exclude name="web.xml" />
+                <exclude name="**/tmp/*" />
+                <exclude name="**/work/*" />
+    		</webinf>
+    		
+			<lib dir="${app.lib.runtime}"  includes="*.jar" />   		
+			<lib dir="${app.web.lib}"  includes="*.jar" /> 
+
+			<!-- Class files without java class files(package in jar file). -->
+            <classes dir="${app.build.classes}">
+    			<include name="**/*.properties" />
+    			<include name="**/*.xml" />
+    		</classes>
+        </war>		
+	</target>
+	
+
+</project>

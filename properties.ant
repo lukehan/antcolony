@@ -1,0 +1,48 @@
+<!-- $Id: build.xml,v 1.1 2003/10/23 14:01:06 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined properties for ant build.xml file,it will be used by 
+	Entity Reference in build.xml.
+	This file is NOT a well-formed XML file,thought it look's very like XML file.
+	DON'T surround it with <properties></properties> target or others.I'm failure 
+	to do this,if you success,please mail me(walker@skyinn.org).
+	
+	For height light in your edit(e.g:Eclipse),you can open this file with
+	HTML source editor or others but NOT XML.
+-->
+
+<!-- ======================================================================= -->
+<!--              Load local and user build preferences                      -->
+<!-- ======================================================================= -->
+<!-- Load user overrides -->
+<property environment="env"/>
+<property file="build.properties"/>
+<property file="app.properties"/>
+<property file="ant.properties"/>
+
+<!-- project.name is supplied in build.properties, so we check to see if it
+    has been defined -->
+<target name="build.properties.missing" unless="app.name">
+    <fail>
+    	---------------------------------------------------
+    	Missing build.properties file in current directory!
+    	---------------------------------------------------
+    </fail>
+</target>
+
+<!-- Path -->
+<path id="project.class.path">
+	<pathelement path="${java.class.path}" />
+	<pathelement location="${build.class.dir}" />
+    <fileset dir="${lib.dir}">
+		<include name="**/*.jar" />
+		<include name="**/*.zip" />
+	</fileset>
+</path>
+
+<description>
+	----------------------------------------------------------------
+	This buildfile is used to build the Quasr and Skyinn's projects.
+	----------------------------------------------------------------
+</description>

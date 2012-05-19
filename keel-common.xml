@@ -1,0 +1,792 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+
+<!-- This antfile contains commonly-used targets that might be needed by all -->
+<!-- Keel applications. This prevents having a copy of largely identical build files -->
+<!-- for each application -->
+
+<project name="build-common" default="nocall">
+
+    <target name="nocall">
+        <echo message="This build file is never called directly, only from the build files of other Keel applications"/>
+    </target>
+    
+    <target name="Usage" description="Print Ant build file usage information">    
+        <echo>
+            ant build - Compile all Java files
+            ant jar - Create JAR files
+            ant server-install - Installs the server-side files contributed by this subsystem
+            ant client-install - Installs the client-side files contributed by this subsystem
+            ant doc - Create the docbook documentation
+            ant javadoc - Build javadoc files ant doc - Build documentation
+            ant clean - Cleans out all build files</echo>
+    </target>
+
+    <target name="xdoclet" if="do.xdoclet" unless="jar.is.uptodate.with.src"
+        depends="-init">
+        <delete>
+         <fileset dir="${keel-sub.conf}">
+            <include name="*-persist-system.xconf"/>
+            <!-- <include name="*-hibernate-system.xconf"/> -->
+            <include name="*-model-system.xconf"/>
+         </fileset>
+        </delete>
+        <property name="xdoclet.root.dir" value="${keel-build}/deploy/${xdoclet.name}"/>
+        <property file="${xdoclet.root.dir}/build.properties"/>
+        <property name="lib.dir" value="${xdoclet.root.dir}/lib"/>
+        <property name="dist.lib.dir" value="${lib.dir}"/>
+        <path id="xdoclet.class.path">
+            <fileset dir="${lib.dir}">
+                <include name="*.jar"/>
+            </fileset>
+            <fileset dir="${dist.lib.dir}">
+                <include name="*.jar"/>
+            </fileset>
+        </path>
+        <taskdef
+            name="jdodoclet"
+            classname="xdoclet.modules.jdo.JdoDocletTask"
+            classpathref="xdoclet.class.path"
+            />
+         <taskdef
+            name="persistdoclet"
+            classname="xdoclet.modules.persist.PersistDocletTask"
+            classpathref="xdoclet.class.path"
+            />
+         <taskdef
+            name="modeldoclet"
+            classname="xdoclet.modules.model.ModelDocletTask"
+            classpathref="xdoclet.class.path"
+            />
+       <antcall target="-xdoclet.jdo" />
+       <antcall target="-xdoclet.persist"/>
+       <antcall target="-xdoclet.model"/>
+    </target>
+
+    <target name="-xdoclet.jdo" if="do.xdoclet.jdo" unless="build.notRequired">
+        <echo message="Creating JDO Service configuration via XDoclet"/>
+        <jdodoclet
+            destdir="${keel-sub.build.java}"
+            mergedir="${keel-sub.conf}"
+            excludedtags="@version,@author,@todo"
+            addedtags="@xdoclet-generated at ${TODAY},@copyright The XDoclet Team,@author XDoclet,@version ${version}"
+            force="false"
+            verbose="false">
+
+            <fileset dir="${keel-sub.src.java}">
+                <include name="**/*.java"/>
+            </fileset>
+            <fileset dir="${keel-sub.src.test}">
+                <include name="**/*.java"/>
+            </fileset>
+
+            <jdometadata project="metadata" generation="project"/>
+            <triactive/>
+        </jdodoclet>
+
+    </target>
+
+    <target name="-xdoclet.persist" if="has.persistmeta">
+        <echo message="Creating Default Persistence Service configuration via XDoclet"/>
+        <persistdoclet
+            destdir="${keel-sub.build.java}"
+            mergedir="${keel-sub.conf}"
+            excludedtags="@version,@author,@todo,@see"
+            addedtags="@xdoclet-generated at ${TODAY},@copyright The XDoclet Team,@author XDoclet,@version ${version}"
+            force="false"
+            verbose="true">
+
+            <fileset dir="${keel-sub.src.java}">
+                <include name="**/*.java"/>
+            </fileset>
+            <fileset dir="${keel-sub.src.test}">
+                <include name="**/*.java"/>
+            </fileset>
+
+            <persist version="2.0"/>
+
+        </persistdoclet>
+        <copy todir="${keel-sub.conf}" flatten="true" overwrite="true">
+          <fileset dir="${keel-sub.build.java}">
+             <include name="**/*-persist-system.xconf"/>
+          </fileset>
+        </copy>
+    </target>
+
+    <target name="-xdoclet.model" if="do.xdoclet.model">
+        <echo message="Creating Model configuration via XDoclet"/>
+        <modeldoclet
+            destdir="${keel-sub.build.java}"
+            mergedir="${keel-sub.conf}"
+            excludedtags="@version,@author,@todo,@see"
+            addedtags="@xdoclet-generated at ${TODAY},@copyright The XDoclet Team,@author XDoclet,@version ${version}"
+            force="false"
+            verbose="true">
+
+            <model version="2.0"/>
+            <fileset dir="${keel-sub.src.java}">
+                <include name="**/*.java"/>
+            </fileset>
+        </modeldoclet>
+        <copy todir="${keel-sub.conf}" flatten="true" overwrite="true">
+          <fileset dir="${keel-sub.build.java}">
+             <include name="**/*-model-system.xconf"/>
+          </fileset>
+        </copy>
+    </target>
+    
+    <target name="build" description="Compile all .java files"
+        depends="-init,-check-build-required" unless="build.notRequired">
+        <echo message="Compiling ${keel-sub.name} ..."/>
+        <mkdir dir="${keel-sub.lib}"/>
+        <mkdir dir="${keel-sub.build.java}"/>
+        <!-- Compile this sub-systems .java files -->
+        <javac source="1.4" srcdir="${keel-sub.src.java}" destdir="${keel-sub.build.java}"
+            includes="**/*.java"
+            classpath="${keel-sub.classpath}"
+            debug="${javac.debug}" optimize="${javac.optimize}"
+            deprecation="${javac.deprecation}" verbose="${javac.verbose}"/>
+        <condition property="compile.tests" value="true">
+            <available file="${keel-sub.src.test}" type="dir"/>
+        </condition>
+        <antcall target="-compile-tests"/>
+        <echo message="${keel-sub.name} compilation complete"/>
+        <antcall target="-collect-meta"/>
+        <antcall target="xdoclet"/>
+        <antcall target="-copy-non-java-files"/>
+    </target>
+    
+    <target name="-compile-tests" description="Compile test routines" if="compile.tests"
+        depends="-init">
+        <javac source="1.4" srcdir="${keel-sub.src.test}" destdir="${keel-sub.build.java}"
+            includes="**/*.java"
+            classpath="${keel-sub.classpath}"
+            debug="${javac.debug}" optimize="${javac.optimize}"
+            deprecation="${javac.deprecation}" verbose="${javac.verbose}"/>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    Collects meta-information from source Javadoc tags
+    ****************************************************************************
+    -->
+    <target name="-collect-meta" description="Collects meta-information" if="do.rolesmeta" unless="meta.is.uptodate.with.src">
+        <echo message="Collecting Fortress meta-info for ${keel-sub.name} ..."/>
+        <path id="metacollector.classpath">
+            <!-- Include every jar in the "lib" sub-directory of Keel server -->
+            <fileset dir="${keel-server}/lib">
+                <include name="*.jar"/>
+            </fileset>
+        </path>
+        <taskdef name="collect-metainfo"
+                    classname="org.apache.avalon.fortress.tools.ComponentMetaInfoCollector">
+            <classpath refid="metacollector.classpath"/>
+        </taskdef>
+        <mkdir dir="${keel-sub.build.java}"/>
+        <!-- Compile this sub-systems .java files -->
+        <collect-metainfo destdir="${keel-sub.build.java}">
+            <fileset dir="${keel-sub.src.java}"/>
+            <fileset dir="${keel-sub.src.test}"/>
+        </collect-metainfo>
+      </target>
+
+    <!--
+    ****************************************************************************
+    Target to copy non-Java files into build directory so that
+    resources (such as properties, etc.) can be included in JAR
+    ****************************************************************************
+    -->
+	<target name="-copy-non-java-files" unless="dont.copy.nonjavafiles">
+        <copy todir="${keel-sub.build.java}" overwrite="true">
+          <fileset dir="${keel-sub.src.java}">
+             <exclude name="**/*.java"/>
+          </fileset>
+        </copy>
+	</target>
+
+    <!--
+    ****************************************************************************
+    Create JAR file for the current application
+    ****************************************************************************
+    -->
+    <target name="jar" 
+        depends="-init, build" unless="build.notRequired"
+        description="Create JAR files">
+        <echo message="Creating JAR for ${keel-sub.name} ..."/>
+        <mkdir dir="${keel-sub.build.lib}"/>
+        <jar jarfile="${keel-sub.build.lib}/${keel-sub.jar.name}.jar"
+            basedir="${keel-sub.build.java}"
+            excludes="**/*.java,**/package.html" update="false" index="true"
+            description="Keel ${keel-sub.name} Subsystem Classes ${keel-sub.version}"
+            />
+    </target>
+    
+    <!--
+    ****************************************************************************
+    Shortcut assemble and deploy target, to be used when the assemble step on 
+    one or more Keel subsystems has been done manually.
+    ****************************************************************************
+    -->
+    <target name="shortcut-assemble-deploy"
+        description="Install application ${keel-sub.name} into temporary deployment directory">
+        <!-- We need to disable passing of properties to the called ant script,
+        so that it can use it's own subsystem properties.  However, we do pass
+        the deployment name so that we are not prompted again -->
+        <ant antfile="../keel-build/build-internal.xml" target="shortcut-assemble-deploy" inheritAll="false">
+            <property name="deploy.name" value="${deploy.name}"/>
+        </ant>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    This installs all the server-side files contributed by this sub-sys.
+    ****************************************************************************
+    -->
+    <target name="server-install"
+        depends="-init"
+        description="Install application ${keel-sub.name} into temporary deployment directory">
+        
+        <echo message="Installing ${keel-sub.name} server-side ..."/>
+        <mkdir dir="${keel-sub.install.lib.dir}"/>
+        <!-- If you get an error about the directory doesn't exist, you must install the -->
+        <!-- Keel Server first -->
+        <copy todir="${keel-sub.install.lib.dir}">
+            <fileset dir="${keel-sub.build.lib}">
+                <include name="*.jar"/>
+            </fileset>
+        </copy>
+        <copy todir="${keel-sub.install.lib.dir}">
+            <fileset dir="${keel-sub.lib}">
+                <include name="*.jar"/>
+            </fileset>
+        </copy>
+        <mkdir dir="${keel-sub.install.conf.local.dir}"/>
+        <copy todir="${keel-sub.install.conf.local.dir}">
+            <fileset dir="${keel-sub.conf}">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+        <mkdir dir="${keel-sub.install.res.local.dir}"/>
+        <copy todir="${keel-sub.install.res.local.dir}">
+            <fileset dir="${keel-sub.res}" >
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!--
+    ****************************************************************************
+    This installs all the client-side files contributed by this sub-sys.
+    ****************************************************************************
+    -->
+    <target name="client-install" if="do.clientside"
+        description="Installing application ${keel-sub.name} ..."
+        depends="-init">
+        <echo message="Installing ${keel-sub.name} client-side ..."/>
+        <mkdir dir="${keel-sub.install.clientconf.local.dir}"/>
+        <!-- Install each UI-specific config & UI files contributed by this subsys.-->
+        <antcall target="-client-install-cocoon"/>
+        <antcall target="-client-install-maverick"/>
+        <antcall target="-client-install-struts"/>
+        <antcall target="-client-install-velocity"/>
+        <antcall target="-client-install-webwork2"/>
+    </target>
+
+    <!--
+    ============================================================================
+    This installs all the Cocoon-related client-side files
+    ============================================================================
+    -->
+    <target name="-client-install-cocoon" if="do.cocoon">
+        <!-- Install any config files for Cocoon -->
+       <mkdir dir="${keel-sub.install.clientconf.local.dir}/cocoon"/>
+       <copy todir="${keel-sub.install.clientconf.local.dir}/cocoon">
+          <fileset dir="${keel-sub.clientconf}/cocoon">
+                <include name="**/*"/>
+          </fileset>
+       </copy>
+        <!-- Install the Cocoon UI files -->
+       <mkdir dir="${keel-sub.install.cocoon.dir}"/>
+        <copy todir="${keel-sub.install.cocoon.dir}">
+            <fileset dir="${keel-sub.src}/xsl/cocoon">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+ 
+    <!--
+    ============================================================================
+    This installs all the Maverick-related client-side files
+    ============================================================================
+    -->
+    <target name="-client-install-maverick" if="do.maverick">
+        <!-- Install Struts config files -->
+       <mkdir dir="${keel-sub.install.clientconf.local.dir}/maverick"/>
+       <copy todir="${keel-sub.install.clientconf.local.dir}/maverick">
+          <fileset dir="${keel-sub.clientconf}/maverick">
+                <include name="**/*"/>
+          </fileset>
+       </copy>                  
+       <!-- Install Maverick UI files -->
+       <mkdir dir="${keel-sub.install.maverick.dir}"/>
+        <copy todir="${keel-sub.install.maverick.dir}">
+            <fileset dir="${keel-sub.src}/jsp/maverick">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+ 
+    <!--
+    ============================================================================
+    This installs all the Struts-related client-side files
+    ============================================================================
+    -->
+    <target name="-client-install-struts" if="do.struts">
+        <!-- Install Struts config files -->
+       <mkdir dir="${keel-sub.install.clientconf.local.dir}/struts"/>
+       <copy todir="${keel-sub.install.clientconf.local.dir}/struts">
+          <fileset dir="${keel-sub.clientconf}/struts">
+                <include name="**/*"/>
+          </fileset>
+       </copy>                  
+       <!-- Install Struts UI files -->
+       <mkdir dir="${keel-sub.install.struts.dir}"/>
+        <copy todir="${keel-sub.install.struts.dir}">
+            <fileset dir="${keel-sub.src}/jsp/struts">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!--
+    ============================================================================
+    This installs all the Velocity-related client-side files
+    ============================================================================
+    -->
+    <target name="-client-install-velocity" if="do.velocity">
+        <!-- Install Velocity config files -->
+       <mkdir dir="${keel-sub.install.clientconf.local.dir}/velocity"/>
+       <copy todir="${keel-sub.install.clientconf.local.dir}/velocity">
+          <fileset dir="${keel-sub.clientconf}/velocity">
+                <include name="**/*"/>
+          </fileset>
+       </copy>
+       <!-- Install Velocity UI files -->
+       <mkdir dir="${keel-sub.install.velocity.dir}"/>
+        <copy todir="${keel-sub.install.velocity.dir}">
+            <fileset dir="${keel-sub.src}/vm">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+ 
+    <!--
+    ============================================================================
+    This installs all the Webwork2-related client-side files
+    ============================================================================
+    -->
+    <target name="-client-install-webwork2" if="do.webwork2">
+        <!-- Install Struts config files -->
+       <mkdir dir="${keel-sub.install.clientconf.local.dir}/webwork2"/>
+       <copy todir="${keel-sub.install.clientconf.local.dir}/webwork2">
+          <fileset dir="${keel-sub.clientconf}/webwork2">
+                <include name="**/*"/>
+          </fileset>
+       </copy>                  
+       <!-- Install Webwork2 UI files -->
+       <mkdir dir="${keel-sub.install.webwork2.dir}"/>
+        <copy todir="${keel-sub.install.webwork2.dir}">
+            <fileset dir="${keel-sub.src}/ui/webwork2">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    This copies all the files this subsys needs to supply for a source release
+    ****************************************************************************
+    --> 
+    <target name="release-src"
+            depends="-init">
+        <echo message="Copying ${keel-sub.name} to release dir..."/>
+        <copy
+            todir="${keel-sub.release.dir}/${release.bundle}/${keel-sub.name}">
+            <fileset dir="${keel-sub}">
+                <exclude name="**/.*"/>
+                <exclude name="**/build/"/>
+                <exclude name="**/CVS"/>
+            </fileset>
+        </copy>
+    </target>   
+    
+    <!--
+    ****************************************************************************
+    This generates the Javadoc for this subsystem
+    ****************************************************************************
+    -->
+    <target name="javadoc" description="Build javadoc documentation">
+        <echo message="Building javadoc for ${keel-sub.name}"/>
+        <delete dir="${keel-sub.build.javadoc}"/>
+        <mkdir dir="${keel-sub.build.javadoc}"/>
+        <javadoc
+            private="true"
+            overview="${keel-sub.src.java}/overview.html"
+            maxmemory="128M"
+            packagenames="org.keel.*,org.apache.*"
+            classpath="${keel-sub.classpath}"
+            sourcepath="${keel-sub.src.java}"
+            use="true"
+            source="1.4"
+            author="true"
+            destdir="${keel-sub.build.javadoc}"
+            version="true"
+            doctitle="${keel-sub.name} Version-${keel-sub.version}"
+            windowtitle="Keel Meta-Framework ${keel-sub.version}"
+            header="&lt;b&gt;Keel ${keel-sub.version}&lt;/b&gt;"
+            bottom="Please see &lt;a href=http://www.keelframework.org&gt;www.keelframework.org&lt;/a&gt; for information about new Keel releases. &lt;hr&gt;"
+            verbose="off"
+            failonerror="off">
+            <group title="Adapted Avalon" packages="org.keel.avalon.*"/>
+            <group title="Applications" packages="org.keel.apps.*"/>
+            <group title="Clients" packages="org.keel.clients.*"/>
+            <group title="Comm" packages="org.keel.comm.*"/>
+            <group title="Exceptions" packages="org.keel.core.exception.*"/>
+            <group title="Models" packages="org.keel.models.*"/>
+            <group title="Servers" packages="org.keel.servera.*"/>
+            <group title="Services" packages="org.keel.services.*"/>
+            <group title="Utilities" packages="org.keel.util.*"/>
+            <group title="Axis UI Implementation" packages="org.keel.clients.axis"/>
+            <group title="Cocoon UI Implementation" packages="org.keel.clients.cocoon"/>
+            <group title="Struts UI Implementation" packages="org.keel.clients.struts"/>
+            <group title="Velocity UI Implementation" packages="org.keel.clients.velocity"/>
+            <group title="Apache Avalon" packages="org.apache.avalon.*"/>
+            <group title="Apache Xalan" packages="org.apache.xalan.*"/>
+            <group title="Apache Xerces XML Parser" packages="org.apache.xerces.*"/>
+            <group title="Hypersonic Database" packages="org.hsql.*"/>
+            <link offline="true" href="../doc/struts/api/" packagelistloc="keel/doc/struts"/>
+            <link offline="true" href="http://java.sun.com/j2se/1.3/docs/api/" packagelistloc="keel/doc/java"/>
+            <link offline="true" href="http://java.sun.com/products/servlet/2.3/javadoc/" packagelistloc="keel/doc/java/servlet"/> 
+        </javadoc>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    This installs the generated Javadoc for this subsystem
+    ****************************************************************************
+    -->
+    <target name="install-javadoc" description="Installs javadoc documentation"
+            depends="-init">
+        <mkdir dir="${keel-sub.install.javadoc.dir}/${keel-sub.name}"/>
+        <copy todir="${keel-sub.install.javadoc.dir}/${keel-sub.name}">
+            <fileset dir="${keel-sub.build.javadoc}">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+
+    <!--
+    ****************************************************************************
+    This generates all the docbook documentation.  The doc
+    directory is assumed to have its own "build.xml" with a
+    "keel-doc" target.
+    ****************************************************************************
+    -->
+    <target name="doc" description="Build documentation" if="do.docbook"
+            depends="-init">
+        <echo message="Creating doc for ${keel-sub.name} ..."/>
+        <ant dir="${keel-sub}" antfile="${keel-sub.src.doc}/build.xml"
+            target="both"/>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    This installs the generated Docbook for this subsystem
+    ****************************************************************************
+    -->
+    <target name="install-doc" description="Installs docbook documentation" if="do.docbook"
+            depends="-init">
+        <mkdir dir="${keel-sub.install.doc.dir}/${keel-sub.name}"/>
+        <copy todir="${keel-sub.install.doc.dir}/${keel-sub.name}">
+            <fileset dir="${keel-sub.build.doc}">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+    
+    <!--
+    ****************************************************************************
+    Cleans up all files from local build directory
+    ****************************************************************************
+    -->
+    <target name="clean"
+        description="Clean all files created by this build file"
+            depends="-read-deploy">
+        <echo message="Cleaning ${keel-sub.name} ....."/>
+        <delete verbose="true" failonerror="false">
+          <fileset dir="${keel-sub.build}" includes="**/*"/>
+          <fileset dir="${keel-sub.conf}" includes="*-persist-system.xconf"/>
+          <fileset dir="${keel-sub.conf}" includes="*-model-system.xconf"/>
+          <fileset dir="${keel-sub.conf}" includes="*-hibernate-system.xconf"/>
+        </delete>
+    </target>
+
+    <target name="doc-war"
+        description="Create Documentation WAR files"
+            depends="-init">
+        <echo message="Creating WAR for ${keel-sub.name} javadoc ....."/>
+        <mkdir dir="${keel-sub.build.lib}"/>
+        <copy todir="${keel-sub.build.javadoc}">
+            <fileset dir="${keel-sub.src}/doc"/>
+        </copy>
+        <jar jarfile="${keel-sub.build}/${keel-sub.name}-doc.war"
+            basedir="${keel-sub.build.javadoc}" update="false" index="true"
+            description="Keel ${keel-sub.name} System Documentation"/>
+    </target> 
+
+    <target name="-init" description="sets up the env. needed for the rest of the build"
+            depends="-read-deploy">
+
+        <fail message="jar file name not set - probably an error in this modules build file for ${keel-sub.name}" unless="keel-sub.jar.name"/>
+
+         <condition property="do.rolesmeta" value="true">
+         	<and>
+	            <not>
+	    	        <or>
+		                <istrue  value="${dont.create.rolesmeta}"/>
+				<and>
+					<isset property="has.servicemeta"/>
+		                	<isfalse value="${has.servicemeta}"/>
+				</and>
+		            </or>
+	            </not>
+            </and>
+        </condition>
+        <condition property="do.xdoclet.model" value="true">
+            <and>
+                <not>
+                    <istrue  value="${dont.create.modelmeta}"/>
+                </not>
+                <istrue value="${has.modelmeta}"/>
+            </and>
+        </condition>
+        <condition property="do.xdoclet.jdo" value="true">
+            <and>
+                <istrue value="${has.persistmeta}"/>
+                <istrue value="${service.jdo}"/>
+            </and>
+        </condition>
+        <condition property="do.xdoclet" value="true">
+            <and>
+                <not>
+                    <istrue  value="${dont.create.persistmeta}"/>
+                </not>
+                <or>
+                    <istrue value="${has.persistmeta}"/>
+                    <istrue value="${do.xdoclet.jdo}"/>
+                    <istrue value="${do.xdoclet.model}"/>
+                </or>
+            </and>
+        </condition>
+        <condition property="do.struts" value="true">
+            <and>
+                <istrue value="${use.struts}"/>
+                <available file="${keel-sub}/src/jsp/struts" type="dir"/>
+            </and>
+        </condition>
+        <condition property="do.cocoon" value="true">
+            <and>
+                <istrue value="${use.cocoon}"/>
+                <available file="${keel-sub}/src/xsl/cocoon" type="dir"/>
+            </and>
+        </condition>
+        <condition property="do.velocity" value="true">
+            <and>
+                <istrue value="${use.velocity}"/>
+                <available file="${keel-sub}/src/vm" type="dir"/>
+            </and>
+        </condition>
+        <condition property="do.maverick" value="true">
+            <and>
+                <istrue value="${use.maverick}"/>
+                <available file="${keel-sub}/src/jsp/maverick" type="dir"/>
+            </and>
+        </condition>
+        <condition property="do.webwork2" value="true">
+            <and>
+                <istrue value="${use.webwork2}"/>
+                <available file="${keel-sub}/src/ui/webwork2" type="dir"/>
+            </and>
+        </condition>
+        <condition property="do.clientside" value="true">
+            <or>
+                <istrue value="${do.struts}"/>
+                <istrue value="${do.cocoon}"/>
+                <istrue value="${do.velocity}"/>
+                <istrue value="${do.maverick}"/>
+                <istrue value="${do.webwork2}"/>
+                <contains string="${keel-sub.name}" substring="comm-"/>
+            </or>
+        </condition>
+        <condition property="do.docbook" value="true">
+            <and>
+                <istrue value="${has.docbook}"/>
+            </and>
+        </condition>
+        
+     </target>
+   
+    <!--
+    ****************************************************************************
+    Cleans up all files from local build directory
+    ****************************************************************************
+    -->
+    <target name="-check-build-required" depends="-read-deploy">
+
+        <condition property="built.jar" value="${keel-sub.build}/lib/keel-core-${module.version}.jar">
+              <equals arg1="${keel-sub.name}" arg2="keel-core"/>
+        </condition> 
+        <condition property="built.jar" value="${keel-sub.build}/lib/keel-server-${module.version}.jar">
+              <equals arg1="${keel-sub.name}" arg2="keel-server"/>
+        </condition>
+        <condition property="built.jar" value="${keel-sub.build}/lib/${keel-sub.jar.name}.jar">
+              <not>
+                  <isset property="built.jar"/>
+              </not>
+        </condition>
+        <uptodate property="jar.is.uptodate.with.src">
+           <srcfiles dir= "${keel-sub.src}" includes="**/*"/>
+		   <mapper type="merge" to="${built.jar}"/>
+        </uptodate>
+        <uptodate property="meta.is.uptodate.with.src">
+           <srcfiles dir= "${keel-sub.src}" includes="**/*.java"/>
+ 		   <mapper type="merge" to="${keel-sub.build}/classes/services.list"/>
+        </uptodate>
+         <condition property="build.notRequired">
+        	<and>
+        		<isset property="jar.is.uptodate.with.src"/>
+        		<isset property="meta.is.uptodate.with.src"/>
+        	</and>
+        </condition>
+        <!-- Uncomment below for additional debugging -->
+        <!-- <echo message="Looking for ${built.jar} in ${keel-sub.name}"/>
+        <echo message="Property jar.is.uptodate.with.src for ${keel-sub.name} is ${jar.is.uptodate.with.src}"/>
+        <echo message="Property meta.is.uptodate.with.src/do.rolesmeta for ${keel-sub.name} is ${meta.is.uptodate.with.src}/${do.rolesmeta}"/>
+        <echo message="Property build.notRequired for ${keel-sub.name} is ${build.notRequired}"/> -->
+    </target>
+
+    <!--
+    ============================================================================
+    Prompt the user for the prefix of the deployment properties file
+    See default-deploy.properties for an example
+    ============================================================================
+    -->    
+    <target name="-input-deploy" unless="deploy.name">
+        <input message="Deployment name:" addproperty="deploy.name"/>
+    </target>
+
+    <!--
+    ============================================================================
+    Read the *-deploy.properties file specified by either a command-line switch
+    or via user-prompt.  In either case, deploy.name should have been set by now.
+    ============================================================================
+    -->    
+    <target name="-read-deploy" depends="-input-deploy" unless="deploy.descrip">
+        <fail unless="deploy.name"
+            message="deploy.name property was not set - use input-deploy or specify on command line with -D"
+            />
+        <echo message="Reading ${keel-build}/${deploy.name}-deploy.properties"/>
+        <property file="${keel-build}/${deploy.name}-deploy.properties"/>
+        <fail unless="deploy.descrip"
+            message="deploy.descrip property was not set in the ${deploy.name}-deploy.properties file, or the file was not read successfully. Cannot proceed."
+            />
+        <condition property="deploy.ext" value="war">
+            <istrue value="${deploy.war}"/>
+        </condition>
+        <condition property="deploy.ext" value="ear">
+            <istrue value="${deploy.ear}"/>
+        </condition>
+    </target>
+
+    <!-- determine if the current module has a test.xml file for anteater functional tests. If so, run those tests -->
+    <target name="anteater" depends="-read-deploy">
+        <echo message="Checking for functional tests for ${keel-sub.name}"/>
+
+        <available file="${keel-sub}/test.xml" property="test.xml.exists"/>
+
+       <condition property="unixtype">
+         <os family="unix"/>
+       </condition>
+
+       <antcall target="-run-anteater"/>
+
+    </target>
+
+    <target name="-run-anteater" if="test.xml.exists">
+       <antcall target="-anteater-unixtype"/>
+       <antcall target="-anteater-windowstype"/>
+    </target>
+
+    <target name="-anteater-unixtype" if="unixtype">
+       <exec executable="${anteater.path}/bin/anteater">
+             <arg line="-Ddeploy.name=${deploy.name} -f ${keel-sub}/test.xml"/>
+       </exec>
+    </target>
+
+    <target name="-anteater-windowstype" unless="unixtype">
+       <exec executable="cmd.exe">
+           <arg line="/c ${anteater.path}/bin/anteater.bat -Ddeploy.name=${deploy.name} -f ${keel-sub}/test.xml"/>
+       </exec>
+    </target>
+
+    <target name="-assemble-with-dist" depends="-read-deploy">
+    	<ant antfile="${keel-build}/build-internal.xml" target="-delete-install" inheritall="true" inheritrefs="true"/>
+     	<antcall target="jar"/>
+     	<copy todir="${keel-sub.install.lib.dir}">
+            <fileset dir="${keel-server-dist}/lib">
+                <include name="**/*"/>
+            </fileset>
+     	</copy>
+        <copy todir="${keel-sub.install.conf.dir}">
+            <fileset dir="${keel-server-dist}/conf">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+        <copy todir="${keel-sub.install.res.local.dir}">
+            <fileset dir="${keel-server}/resources">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    	<mkdir dir="${keel-sub.install.clientlib.dir}"/>
+     	<copy todir="${keel-sub.install.clientlib.dir}">
+            <fileset dir="${keel-client-dist}/lib">
+                <include name="**/*"/>
+            </fileset>
+     	</copy>
+    	<mkdir dir="${keel-sub.install.clientconf.dir}"/>
+     	<copy todir="${keel-sub.install.clientconf.dir}">
+            <fileset dir="${keel-client-dist}/conf">
+                <include name="**/*"/>
+            </fileset>
+     	</copy>
+    	<mkdir dir="${keel-sub.install.client.dir}/ui"/>
+     	<copy todir="${keel-sub.install.client.dir}/ui">
+            <fileset dir="${keel-client-dist}/ui">
+                <include name="**/*"/>
+            </fileset>
+     	</copy>
+     	<antcall target="server-install"/>
+    	<antcall target="client-install"/>
+    </target>
+
+    <target name="-bundle-with-dist" depends="-read-deploy">
+    	<ant antfile="${keel-build}/build-internal.xml" target="-server-bundle" inheritall="true" inheritrefs="true"/>
+    	<ant antfile="${keel-build}/build-internal.xml" target="-assemble-webapp" inheritall="true" inheritrefs="true"/>
+    </target>
+
+    <target name="-deploy-with-dist" depends="-read-deploy">
+    	<ant antfile="${keel-build}/build-internal.xml" target="deploy" inheritall="true" inheritrefs="true"/>
+    </target>
+
+</project>

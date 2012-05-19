@@ -1,0 +1,106 @@
+#============================================================
+# $Id: readme.txt,v 1.1 2004/03/09 15:14:32 l_walker Exp $
+# 
+#============================================================
+# Skyinn AntColony Project Readme File
+#
+# Create [2003-10-23 21:17] by l_walker
+#============================================================
+
+                 Skyinn AntColony
+
+Introduction
+------------
+	
+	This project build for Quasar and Skyinn's projects development.All projects build
+with Ant(http://ant.apache.org),it defined many tasks to build,test,generate,deploy...
+
+	If all the tasks defined in one build.xml file,it will be too large and confusing.
+So I defined these tasks in several files,and in build.xml defined some targets to call
+these build-XXX.xml.It like Java's Interface(or Abstract class) and it's Implements,
+the "build.xml" is just an INTERFACE,and the "build-XXX.xml" is it's IMPLEMENTS.
+So you can write other build-XXX.xml file and call it in build.xml like I did.
+	And this is NOT one-size-fit-all project,so I suggest you to read these files first
+then to modify to fit your projects.
+
+Installing and Using
+--------------------
+
+	You must install JDK(1.3 or later) and Ant(1.4 or later) first,then
+	1. Define an environment variable "JAVA_HOME" that points at the base directory 
+	of your JDK installation,and add the directory "$JAVA_HOME/bin" to your PATH 
+	variable.
+	
+	2. Define an environment variable "ANT_HOME" that points at the base directory 
+	of your Ant installation,and add the directory "$ANT_HOME/bin" to your PATH 
+	variable.
+	
+	3. Copy these files to your project's base directory,DO NOT modify the "script"
+	directory name,if you did,you must modify the properties.ant and build.properties
+	with the "script.dir" property or others all.
+	
+	e.g - my Quasar project directory will looks like this:
+		/Quasar
+			/build.xml
+			/script
+			/src
+			/...
+	
+	4. Type "ant TARGET_NAME" in the DOS cmd or Linux shell to run the ant tasks.
+	
+	5. You can run the targets in script just like:
+		/script>ant -f build-XXX.xml TARGET_NAME
+	
+	6. For help infomation,type "ant help" or "ant -f build-XXX.xml help",it will 
+	print the key targets for the using ant build file.
+	
+
+Some file list
+---------------
+	
+- default ant build file:
+		\build.xml
+	
+- base tasks:
+		\script\build-base.xml
+		it defined several basic target like :clear,compile,jalopy,etc.
+		
+- package tasks:
+		\script\build-cvs.xml
+		jar,war,etc.
+		
+- deploy tasks:
+		\script\build-deploy.xml
+		\script\build-deploy-tomcat.xml
+		\script\build-deploy-resin.xml
+		defined deploy and undeploy targets.Some application server defined their 
+	deploy file by named build-deply-APPSERVER.xml.In build-deploy.xml,you can call
+	the right app server's deploy file.
+	
+- test tasks:
+		\script\build-test.xml
+		JUnit test target and test report,etc.
+	
+- generate tasks:
+		\scipt\build-generate.xml
+		generate JavaDoc and HTML format srouce code.
+	
+- cvs tasks:
+		\script\build-cvs.xml
+		some target for cvs's commit,update,etc.
+		
+- ftp tasks:
+		\script\build-ftp.xml
+		ftp upload,download.
+		
+TODO List
+---------
+	- build-optional.xml: for japloy,pmd,checkstyle,todo,etc.
+	- build-continue.xml: for continue build and auto test.
+	- other build tasks...
+
+	If I have mistake with these build files or you have better files and if you 
+have other build files,please mail me(luke.hq@gmail.com) and I will update these.
+
+	THANKS:-)			
+	

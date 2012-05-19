@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build.xml,v 1.2 2004/03/09 15:14:35 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+
+<project name="build" default="usage" basedir=".">
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" description="Print Ant build file usage information">
+		<splash/>
+		
+		<echo message="ant    help       Show this usage information."/>
+		<echo message="ant    build      Build the application."/>
+		<echo message="ant    javadoc    Show this usage information."/>
+	</target>
+</project>

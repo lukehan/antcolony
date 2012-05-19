@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-common.xml,v 1.4 2004/03/09 15:14:32 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined some base task to build and package java application:
+		'build' for compile source code,and
+		'jar' and 'war'  for generate .jar and .war file
+	
+	Notes:
+		Don't run these task immediately,please create your build.xml
+		in your project,then define some targetes to call these.
+		You can reference the file under the project which generated
+		by the task defind in 'build-newapp.xml' file.
+-->
+
+<project name="build-hibernate" default="usage">
+	
+	<!--load properties-->
+	<property file="ant.properties"/>
+	<property file="default-build.properties"/>
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" 
+		description="Print Ant build file usage information">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ant  usage         Show this usage information.       +</echo>
+		<echo>+ ant  hibernate     Generate Hibernate class descriptor files.</echo>
+		<echo>+ ant  schema.export Export Schema to Database.         +</echo>
+		<echo>+ ant  schema.update Update Schema to Database.         +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Notes:                                                +</echo>
+		<echo>+ This build file DO NOT call immediately,              +</echo>
+		<echo>+ Please create your build.xml in your project,         +</echo>
+		<echo>+ Then define some targetes to call these.              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+	</target>
+
+	<!-- Path -->
+	<path id="project.class.path">
+		<pathelement path="${java.class.path}" />
+		<pathelement location="${app.build.classes}" />
+	    <fileset dir="${app.lib.dir}">
+			<include name="**/*.jar" />
+			<include name="**/*.zip" />
+		</fileset>
+	</path>
+	
+	<!-- ============================================== -->
+	<!-- Initialization                                 -->
+	<!-- ============================================== -->
+	<target name="-init"
+		description="Initialize for the project.">
+	
+		<tstamp />
+	</target>
+
+	<!-- ============================================== -->
+	<!--                                                -->
+	<!-- Hibernate Generating *.hbm.xml files...        -->
+	<!--                                                -->
+    <!-- ============================================== -->
+	<target name="hibernate" depends="-init"
+	        description="Generates Hibernate class descriptor files.">
+		<!-- Execute the hibernatedoclet task -->
+	    <echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Hibernatedoclet Executing                             +</echo>
+		<echo>+ Generating *.hbm.xml files...                         +</echo>
+		<echo>+                                                       +</echo>		
+		<echo>+ ===================================================== +</echo>
+
+		<taskdef name="hibernatedoclet"
+		         classname="xdoclet.modules.hibernate.HibernateDocletTask">
+			<classpath refid="project.class.path"/>
+		</taskdef>
+		<hibernatedoclet destdir	  = "${app.src.hibernate}"
+		                 excludedtags = "@version,@author,@todo"
+		                 force		  = "true"
+		                 verbose	  = "true"
+		                 mergedir	  = "${app.src.hibernate}">
+			<fileset dir="${app.src.java}">
+				<!-- Include the hibernate object classes. -->
+				<include name="**/*.java" />
+			</fileset>
+			<hibernate version="2.0" />
+		</hibernatedoclet>
+	</target>		
+    
+    <!-- ============================================== -->
+	<!--                                                -->
+	<!-- Export Schema to Database                      -->
+	<!--                                                -->
+	<!-- ============================================== -->	
+	<target name="exportschema" depends="hibernate"
+			description="Export schema and create database tables." >
+  	    <echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Export Schema to Database(Execute Schema!)            +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		<taskdef name="exportschema"
+			classname="net.sf.hibernate.tool.hbm2ddl.SchemaExportTask"
+			classpathref="project.class.path"/>
+		<exportschema
+			properties	= "${app.conf.hibernate}/hibernate.properties"
+			quiet		= "no"
+			text		= "no"
+			drop		= "no"
+			delimiter	= ";"
+			output		= "${app.conf.db}/schema.sql">
+			<fileset dir="${app.src.hibernate}">
+				<include name="**/*.hbm.xml"/>
+			</fileset>        
+        </exportschema>
+    </target>	
+    
+
+    <!-- ============================================== -->
+	<!--                                                -->
+	<!-- Update Schema to Database                      -->
+	<!--                                                -->
+	<!-- ============================================== -->	    
+	<target name="updateschema" depends="hibernate" 
+			description="Update schema and database tables.">
+  	    <echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Update Schema to Database(Execute Schema!)            +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>	
+		<taskdef name="updateschema"
+			classname="net.sf.hibernate.tool.hbm2ddl.SchemaUpdateTask"
+			classpathref="project.class.path"/>
+		<updateschema
+			properties="${app.conf.hibernate}/hibernate.properties"
+			quiet="no">
+			<fileset dir="${app.src.hibernate}">
+				<include name="**/*.hbm.xml"/>
+			</fileset>
+		</updateschema>
+	</target>   
+</project>

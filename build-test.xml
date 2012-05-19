@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-test.xml,v 1.3 2004/03/09 15:14:32 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined two task for junit test:
+		'test'    for run junit test
+		'report'  for generate unit test result with HTML format.
+	
+	Notes:
+		The 'report' files will generate in ${app.log.test} direcotry,
+		which with the test result files,so if you want to store the
+		report files to another direcotry,please modify some properties
+		in 'build.properties' file.
+-->
+
+<project name="build-test" default="usage">
+	<!--load properties-->
+	<property file="ant.properties"/>
+	<property file="default-build.properties"/>
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" 
+		description="Print Ant build file usage information">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ant    usage          Show this usage information.    +</echo>
+		<echo>+ ant    test           Run JUnit test.                 +</echo>
+		<echo>+ ant    report         Generate test result report.    +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Notes:                                                +</echo>
+		<echo>+ This build file DO NOT call immediately,              +</echo>
+		<echo>+ Please create your build.xml in your project,         +</echo>
+		<echo>+ Then define some targetes to call these.              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+	</target>
+
+	<!-- Path -->
+	<path id="project.class.path">
+		<pathelement path="${java.class.path}" />
+		<pathelement location="${build.class.dir}" />
+	    <fileset dir="${lib.dir}">
+			<include name="**/*.jar" />
+			<include name="**/*.zip" />
+		</fileset>
+	</path>
+	
+	<!-- ============================================== -->
+	<!-- Initialization                                 -->
+	<!-- ============================================== -->
+	<target name="-init"
+		description="Initialize for the project.">
+		<tstamp />
+	</target>
+	
+	<!-- ============================================== -->
+	<!-- JUnit Test                                     -->
+    <!-- ============================================== -->
+	<target name="test" depends="-init" 
+		description="Run junit test and record the result.">
+			
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ JUnit Test running...                                 +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		
+		<!-- Delete test log files. -->
+        <delete>
+        	<fileset dir="${app.log.test}" includes="**/*"/>
+        </delete>
+		
+		<!-- Call build target first. -->
+		<ant antfile="build-common.xml" target="build"/>
+		
+		<property name="test.log" value="Test-${DSTAMP}-${TSTAMP}.log"/>
+		
+		<!-- Record junit test infomation. -->
+		<record name="${app.log.test}/${test.log}" action="start"/>
+		<junit printsummary  = "on" 
+    	   	fork             = "true" 
+            haltonfailure    = "false" 
+            failureproperty  = "tests.failed" 
+            showoutput       = "true"> 
+            
+            <classpath refid="project.class.path"/> 
+            <formatter type="xml"/>
+            <batchtest todir="${app.log.test}"> 
+                <fileset dir="${app.build.classes}"> 
+                    <include name="**/*Test.*"/> 
+                </fileset> 
+            </batchtest> 
+    	</junit>
+    	<record name="${app.log.test}/${test.log}" action="stop"/>
+	</target>
+
+	<!-- ============================================== -->
+	<!--                                                -->
+	<!-- Report Test Result                             -->
+	<!--                                                -->
+    <!-- ============================================== -->
+    <target name="report" depends="test"
+    		description="Generate test result report by HTML format."> 
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Generating Test Report Files...                       +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>    
+			
+        <fail if="tests.failed">
+            || ---------------------------------------------------------
+            || One or more testes failed, check the report for detail:
+            || ${app.log.test}/index.html 
+            || ---------------------------------------------------------
+        </fail> 		
+        <junitreport> 
+            <report format="frames" todir="${app.log.test}"/>
+            <fileset dir="${app.log.test}"> 
+                <include name="TEST-*.xml"/> 
+            </fileset> 
+        </junitreport>        
+    </target> 
+
+
+</project>

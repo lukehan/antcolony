@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-newapp.xml,v 1.4 2004/02/29 14:29:09 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined two task to gererate default application:
+		'newapp-java'  for Java 
+		'newapp-j2ee'  for J2EE
+	they will gererate the base directory-structure	and copy 
+	some files to the new application,such as lib files,build.xml
+	and others,you can modify this build file to fit your requirement.
+	
+	Notes:
+		The new application will generated in this file's 
+		parent directory.
+		
+		If you want to generate to other directory,you can define
+		the 'app.base.dir' property in 'app.properties' file
+		with your directory,such as: '${basedir}/../projects/${app.name}'.
+-->
+
+<project name="build-newapp" default="usage" basedir=".">
+	
+	<property file="ant.properties"/>
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" 
+		description="Print Ant build file usage information">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ant    usage          Show this usage information.    +</echo>
+		<echo>+ ant    newapp-java    Generate Java Application.      +</echo>
+		<echo>+ ant    newapp-j2ee    Generate J2EE Application.      +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Use:                                                  +</echo>
+		<echo>+     ant -D"app.name=YOUR-APP-NAME" newapp-java(or newapp-j2ee)</echo>
+		<echo>+ will eliminate the prompt for a name                  +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+	</target>
+
+	<target name="newapp">
+		<antcall target="newapp-j2ee"/>
+	</target>
+
+	<!-- ============================================== -->
+	<!-- Initialize for the project.                    -->
+	<!-- ============================================== -->		
+	<target name="-init"
+		description="Initialize for the project."
+		depends="-read-app-name">
+		<property file="app.properties"/>
+	</target>
+		
+	<!-- =====================================================
+		|| If not already specified on the Ant command line, 
+		|| this target prompts for the name of the application 
+		|| to be created.  
+	====================================================== -->
+	<target name="-read-app-name" unless="app.name"
+		description="Prompt the user for the application name.">
+		<input message="Please input the name of your new Application:" 
+			addproperty="app.name"/>
+	</target>
+	
+	<!-- ============================================== -->
+	<!-- Alert message                                  -->
+	<!-- ============================================== -->
+	<target name="-alert-message">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ You need to define some properties in 'build.properties' file" </echo>
+		<echo>+ under ${app.base.dir} directory " </echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Notes: these properties MUST define for your application:" </echo>
+		<echo>+ app.package.dir    //package directory,like: org/skyinn/newapp" </echo>
+		<echo>+ app.package.name    //package name, like: org.skyinn.newapp" </echo>
+		<echo>+ app.release.name    //release name, like: newapp" </echo>
+		<echo>+ app.version    //application release version, like: 0.1" </echo>
+		<echo>+                                                       +</echo>	
+		<echo>+ ===================================================== +</echo>
+	</target>
+	
+		
+<!--==========================J2EE======================================-->			
+	
+	<!-- ==================================================
+		|| Generate the base directory-structure and   
+		|| copy some files,such as log4j.jar to ${lib.dir},
+		|| and generate ant build.xml file by default.    
+	=================================================== -->
+	<target name="newapp-java"
+		description="Create a new Java application."
+		depends="-init">
+		<!--create directories-->
+		<antcall target="-create-dir-java"/>
+		<!--copy files-->
+		<antcall target="-copy-files-java"/>
+		<!--alert message-->		
+		<antcall target="-alert-message"/>
+	</target>
+	
+	<!-- ============================================== -->
+	<!-- Create base dircetories for Java Applicaton.   -->
+	<!-- ============================================== -->
+	<target name="-create-dir-java"
+		description="Create directory-structure for new Java application.">
+		<!--Base Directory-->
+		<mkdir dir="${app.base.dir}"/>
+		<!--Srouce Directory-->
+		<mkdir dir="${app.src.java}"/>
+		<mkdir dir="${app.src.test}"/>
+		<mkdir dir="${app.src.hibernate}"/>
+		<!--Build Directory-->
+		<mkdir dir="${app.build.classes}"/>
+		<!--Dist Directory-->
+		<mkdir dir="${app.dist.dir}"/>
+		<!--Config Directory-->
+		<mkdir dir="${app.conf.log}"/>
+		<mkdir dir="${app.conf.app}"/>
+		<mkdir dir="${app.conf.hibernate}"/>
+		<!--Lib Directory-->
+		<mkdir dir="${app.lib.runtime}"/>
+		<mkdir dir="${app.lib.buildtime}"/>
+		<!--Document Directory-->
+		<mkdir dir="${app.doc.api}"/>
+		<!--Log Directory-->
+		<mkdir dir="${app.log.test}"/>
+		<mkdir dir="${app.log.runtime}"/>
+		<mkdir dir="${app.log.buildtime}"/>
+
+	</target>	
+	
+	<!-- ============================================== -->
+	<!-- Copy files for Java Applicaton.                -->
+	<!-- ============================================== -->	
+	<target name="-copy-files-java"
+		description="Copy files for Java Applicaton.">
+		<!--XSL file to friend read ant build.xml file use HTML. -->
+		<copy todir="${app.base.dir}" file="${basedir}/ant2html.xsl"/>
+		<!--lib files-->		
+		<copy todir="${app.lib.dir}">
+			<fileset dir="${basedir}/lib/lib-java"/>
+		</copy>
+		<!--commons files-->
+		<copy todir="${app.base.dir}">
+			<fileset dir="${basedir}/template/app-java"/>
+			<filterset>
+				<filter token="APP-NAME" value="${app.name}"/>
+			</filterset>
+		</copy>
+		<!--config files-->
+		<copy todir="${app.conf.app}">
+			<fileset dir="${basedir}/template/conf/app"/>
+		</copy>
+		<copy todir="${app.conf.log}">
+			<fileset dir="${basedir}/template/conf/log"/>
+		</copy>
+		<copy todir="${app.conf.hibernate}">
+			<fileset dir="${basedir}/template/conf/hibernate"/>
+		</copy>	
+	</target>
+	
+	
+<!--==========================J2EE======================================-->	
+	
+	<!-- ============================================== -->
+	<!-- Generate the base directory-structure and   
+		 copy some files,such as log4j.jar to ${lib.dir},
+		 and generate ant build.xml file by default.    -->
+	<!-- ============================================== -->		
+	<target name="newapp-j2ee" 
+		description="Create directory-structure for new J2EE application."
+		depends="-init">
+		<antcall target="-create-dir-j2ee"/>
+		<antcall target="-copy-files-j2ee"/>
+		<!--alert message-->		
+		<antcall target="-alert-message"/>
+	</target>	
+	
+	<!-- ============================================== -->
+	<!-- Create base dircetories for J2EE Applicaton.   -->
+	<!-- ============================================== -->	
+	<target name="-create-dir-j2ee" 
+		description="Create base dircetories for J2EE Applicaton.">
+		<!--create java app directories first.-->
+		<antcall target="-create-dir-java"/>
+		<mkdir dir="${app.web.webinf}/classes"/>
+		<mkdir dir="${app.web.lib}"/>
+		<mkdir dir="${app.conf.web}"/>	
+		
+	</target>
+
+	<!-- ============================================== -->
+	<!-- Copy files for J2EE Applicaton.                -->
+	<!-- ============================================== -->
+	<target name="-copy-files-j2ee" 
+		description="Copy files for J2EE Applicaton.">
+		<!--copy java files first.-->
+		<antcall target="-copy-files-java"/>
+		<copy todir="${app.conf.web}">
+			<fileset dir="${basedir}/template/conf/web"/>
+		</copy>		
+	</target>
+	
+</project>

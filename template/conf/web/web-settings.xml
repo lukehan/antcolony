@@ -1,0 +1,15 @@
+<XDtConfig:ifConfigParamNotEquals paramName="Displayname" value="">
+<display-name><XDtConfig:configParameterValue paramName="Displayname"/></display-name>
+</XDtConfig:ifConfigParamNotEquals>
+  
+<!-- RESIN_LOGGER -->
+
+<context-param>
+	<param-name>org.roller.persistence</param-name>
+	<param-value>org.roller.business.hibernate.RollerImpl</param-value>
+</context-param>
+
+<context-param>
+    <param-name>org.roller.authenticatorClass</param-name>
+    <param-value>org.roller.presentation.DefaultAuthenticator</param-value>
+</context-param>

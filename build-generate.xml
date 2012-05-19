@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-generate.xml,v 1.1 2004/03/09 15:14:30 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined two task for junit test:
+		'test'    for run junit test
+		'report'  for generate unit test result with HTML format.
+	
+	Notes:
+		The 'report' files will generate in ${app.log.test} direcotry,
+		which with the test result files,so if you want to store the
+		report files to another direcotry,please modify some properties
+		in 'build.properties' file.
+-->
+
+<project name="build-release" default="usage">
+	<!--load properties-->
+	<property file="ant.properties"/>
+	<property file="${app.build.conf}"/>
+	
+	<!-- ============================================== -->
+	<!-- Help infomation for key targets                -->
+	<!-- ============================================== -->	
+	<target name="usage" 
+		description="Print Ant build file usage information">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ant  usage   Show this usage information.             +</echo>
+		<echo>+ ant  javadoc Generate JavaDoc files.                  +</echo>
+		<echo>+ ant  j2h     Generate Java Source Code to HTML files. +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Notes:                                                +</echo>
+		<echo>+ This build file DO NOT call immediately,              +</echo>
+		<echo>+ Please create your build.xml in your project,         +</echo>
+		<echo>+ Then define some targetes to call these.              +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+	</target>
+
+	<!-- Path -->
+	<path id="project.class.path">
+		<pathelement path="${java.class.path}" />
+		<pathelement location="${app.build.classes}" />
+	    <fileset dir="${app.lib.dir}">
+			<include name="**/*.jar" />
+			<include name="**/*.zip" />
+		</fileset>
+	</path>
+
+	<!-- ============================================== -->
+	<!--                                                -->
+	<!-- Generate JavaDoc                               -->
+	<!--                                                -->
+    <!-- ============================================== -->
+	<target name="javadoc" depends="" 
+			description="Generate JavaDoc API docs">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Generating JavaDoc Files...                           +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo> 
+				
+        <record name="${app.log.dir}/javadoc.log" action="start"/>
+        
+        <!-- Clear exist javadoc files. -->
+        <delete includeEmptyDirs="true">
+            <fileset dir="${app.doc.api}"/>
+        </delete>        
+        
+        <javadoc 
+        	packagenames   = "${app.package.name}.*"
+        	access		   = "private"
+            destdir		   = "${app.doc.api}"
+            charset		   = "gb2312"
+            encoding	   = "gb2312"
+            author		   = "true"
+            version		   = "true"
+            use			   = "true"
+            windowtitle    = "${app.name}-${app.version} API Documentation"
+            stylesheetfile = "${app.doc.dir}/javadoc.css">
+            
+            <classpath refid="project.class.path"/>
+            
+            <fileset dir="${app.src.java}" defaultexcludes="yes">
+                <include name="**/*.java"/>
+            </fileset>
+            
+            <!--JavaDoc parameters-->
+            <doctitle><![CDATA[
+            	<h1>${app.name} - ${app.version} APIs</h1>
+            ]]></doctitle>
+            <!--Copyright infomation.-->
+            <bottom><![CDATA[
+            	<div algin="center">Copyright &#169; 2001-2003 http://www.skyinn.org, All Rights Reserved.</div>
+            ]]></bottom>
+            
+            <tag name="todo" scope="all" description="To do:" />
+            <!-- XDoclet Tags -->
+            <tag name="hibernate.class" scope="all" description="Class:" />
+            <tag name="hibernate.id" scope="all" description="Id:" />
+            <tag name="hibernate.property" scope="all" description="Property:" />
+            
+            <!-- Group defination,need to modfiy for your application -->
+            <group title="DAO Group" packages="org.skyinn.quasar.dao*"/>
+            <group title="Configuration Group" packages="org.skyinn.quasar.config*"/>
+            <group title="Utility Group" packages="org.skyinn.quasar.util*"/>
+                       
+            
+            <!-- SDKs (need online!)
+            <link href="http://java.sun.com/j2se/1.4/docs/api/" />
+            <link href="http://java.sun.com/j2ee/sdk_1.3/techdocs/api/" />
+            -->
+        </javadoc>
+        <record name="${app.log.dir}/javadoc.log" action="stop"/>
+    </target>
+    
+	<!-- ============================================== -->
+	<!--                                                -->
+	<!-- Generate Java Source Code to HTML pages        -->
+	<!--                                                -->
+    <!-- ============================================== -->
+    <target name="j2h" depends="javadoc" 
+    		description="Create HTML pages of code for online viewing.">   
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ Generating Java Source Code to HTML pages...          +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo> 
+		    	
+    	<taskdef name="java2html" classname="com.java2html.Java2HTMLTask">
+    		<classpath refid="project.class.path"/>
+		</taskdef>
+		
+		<property name="j2h.dir" value="${app.doc.dir}/j2h"/>
+		
+		<mkdir dir="${j2h.dir}"/>
+		
+        <!-- Clear exist html files. -->
+        <delete includeEmptyDirs="true">
+            <fileset dir="${j2h.dir}"/>
+        </delete>
+               
+        <java2html 
+        	title		= "${app.name} - ${app.version} Source Code Online View"
+            simple		= "no"
+            tabsize		= "4"
+            marginsize	= "2"
+            header		= "true"
+            footer		= "true"
+            destination	= "${j2h.dir}">
+            
+            <fileset dir="${app.src.java}" includes="**/*"/>
+            <javadoc localRef="${app.doc.api}"/>
+        </java2html>
+        <!-- Copy style file and front page. -->
+        <copy file="${app.doc.dir}/j2h.css"
+            tofile="${app.doc.dir}/j2h/stylesheet.css"
+            overwrite="true"/>
+        <copy file="${app.doc.dir}/j2hfront.html"
+            tofile="${app.doc.dir}/j2h/front.html"
+            overwrite="true"/>
+    </target>
+	
+</project>

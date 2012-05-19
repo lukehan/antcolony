@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="gb2312"?>
+<?xml-stylesheet type="text/xsl" href="./ant2html.xsl"?>
+
+<!-- $Id: build-style.xml,v 1.2 2004/03/09 15:14:34 l_walker Exp $ -->
+<!-- l_walker(walker@skyinn.org) of Skyinn Group http://www.skyinn.org -->
+
+<!-- 
+	This file defined two task for junit test:
+		'test'    for run junit test
+		'report'  for generate unit test result with HTML format.
+	
+	Notes:
+		The 'report' files will generate in ${app.log.test} direcotry,
+		which with the test result files,so if you want to store the
+		report files to another direcotry,please modify some properties
+		in 'build.properties' file.
+-->
+
+<project name="build-style" default="usage">
+	<!--load properties-->
+	<property file="ant.properties"/>
+	<property file="default-build.properties"/>
+	
+	
+    <!-- ============================================== -->
+    <!--                                                -->
+    <!-- Need : jalopy.jar,aelfred.jar,jalopy-ant.jar in 
+    	${ANT_HOME}/lib or on the classpath.
+    -->
+    <!-- ============================================== -->
+	<target name="jalopy" depends="init">
+		<echo>+ ===================================================== +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+  Formatting source code with jalopy                   +</echo>
+		<echo>+                                                       +</echo>
+		<echo>+ ===================================================== +</echo>
+		
+		<taskdef name="jalopy"
+            classname="de.hunsicker.jalopy.plugin.ant.AntPlugin">
+			<classpath>
+				<fileset dir="${lib.jalopy.dir}" includes="**/*.jar" />
+				<fileset dir="${lib.log4j.dir}"  includes="**/*.jar" />
+				<fileset dir="${lib.jdom.dir}"   includes="**/*.jar" />
+				<fileset dir="${lib.oro.dir}"    includes="**/*.jar" />
+			</classpath>
+		</taskdef>
+        		
+  		<jalopy 
+            convention="${config.dir}/jalopy.xml"
+            loglevel="warn"
+            threads="2">
+      		<fileset dir="${src.java.dir}" includes="**/*.java" />
+      		<fileset dir="${src.test.dir}" includes="**/*.java" />
+    	</jalopy>		
+	</target>	
+
+
+    <!-- ============================================== -->
+    <!--                                                -->
+    <!-- Need : checkstyle's jar in 
+    	${ANT_HOME}/lib or on the classpath.
+    -->
+    <!-- ============================================== -->
+    <target name="checkstyle" depends="init"
+        description="Check code style for compliance with coding standards">
+        <!-- Not complete! -->
+        <property name="checkstyle.data.dir"
+                  location="${build.dir}/docs/checkstyle"/>
+        <property name="checkstyle.data.file"
+                  location="${checkstyle.data.dir}/checkstyle.xml"/>
+        <property name="checkstyle.report.file"
+                  location="${checkstyle.data.dir}/checkstyle.html"/>
+        <property name="checkstyle.xsl.file"
+                  location="${checkstyle.dir}/contrib/checkstyle-noframes.xsl"/>
+        <mkdir dir="${checkstyle.data.dir}"/>
+        <taskdef resource="checkstyletask.properties"
+                 classpath="${checkstyle.jar}"/>
+        <checkstyle config="${checkstyle.dir}/sun_checks.xml"
+                    failOnViolation="false"
+                    failureProperty="checkstyle.failure">
+            <fileset dir="src">
+                <patternset refid="java.files.pattern"/>
+            </fileset>
+            <!-- uncomment to print to console as well -->
+            <!--formatter type="plain"/--> 
+            <formatter type="xml" toFile="${checkstyle.data.file}"/>
+        </checkstyle>
+        <xslt in="${checkstyle.data.file}"
+              out="${checkstyle.report.file}"
+              style="${checkstyle.xsl.file}"
+        />
+    </target>	
+	
+</project>

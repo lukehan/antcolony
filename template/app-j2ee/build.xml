@@ -1,0 +1,248 @@
+<!--
+ *
+ * Copyright (c) 2002, The Keel Group, Ltd. All rights reserved.
+ *
+ * This software is made available under the terms of the license found
+ * in the LICENSE file, included with this source code. The license can
+ * also be found at:
+ * http://www.keelframework.net/LICENSE
+ *
+-->
+
+<!-- Ant build file for the Blank App Subsystem of the Keel meta-framework project -->
+
+<project name="@APP-NAME@" default="Usage" basedir="../keel-build">
+
+	<property name="keel-sub.name" value="${ant.project.name}"/>
+	<property name="keel-sub" value="${basedir}/../${keel-sub.name}"/>
+
+	<!--
+	************************************************************
+	Setup unique classpath needs for this module
+	keel-core and keel-server are automatically added by
+	the common build file
+	************************************************************
+	-->
+	<target name="-setup-classpath">
+        <path id="keel-sub.classpathset">
+	        <!-- Include every jar in the "lib" sub-directory in the classpath -->
+	        <fileset id="classpath.pre.fileset" dir="${keel-sub.lib}">
+	            <include name="*.jar"/>
+	        </fileset>
+            <!-- Include every jar in the "lib" sub-directory of Keel server -->
+            <fileset dir="${keel-server.build.lib}">
+                <include name="*.jar"/>
+            </fileset>
+            <!-- Include every jar in the "lib" sub-directory of Keel core -->
+            <fileset dir="${keel-core.build.lib}">
+                <include name="*.jar"/>
+            </fileset>
+        </path>
+        <property name="keel-sub.classpath" refid="keel-sub.classpathset"/>
+    </target>
+	
+	<!--
+	************************************************************
+	************************************************************
+	DO NOT CHANGE ANYTHING BELOW THIS LINE, SHOULD BE COMMON TO
+	ALL KEEL MODULES
+	************************************************************
+	************************************************************
+	-->
+	
+	<!-- Read properties shared by ALL Keel build files -->
+    <property file="${user.home}/.ant.properties"/>
+    <property file="${keel-sub}/local-ant.properties" />
+	<property file="${keel-sub}/ant.properties"/>
+    <property file="${basedir}/local-ant.properties"/>
+	<property file="${basedir}/ant.properties"/>
+	
+	<!-- Read properties shared by all Keel build files, except the top-level build.xml -->
+	<property file="${basedir}/ant-keel-sub.properties"/>
+
+	<!--
+	============================================================================
+	This is the default target, prints usage information
+	============================================================================
+	-->
+	<target name="Usage" description="Print Ant build file usage information">
+	    <ant antfile="../keel-build/build-common.xml" target="Usage" inheritall="true" inheritrefs="true"/>
+	</target>
+	
+	<!--
+	============================================================================
+    Compile all Java sources into local build directory
+	============================================================================
+	-->
+	<target name="build" description="Compile all .java files"
+		depends="-init">
+	    <ant antfile="../keel-build/build-common.xml" target="build" inheritall="true" inheritrefs="true"/>
+	</target>
+
+	<!--
+	============================================================================
+    Create JAR files from compiled classes
+	============================================================================
+	-->
+	<target name="jar" description="Create JAR files"
+		depends="-init">
+	    <ant antfile="../keel-build/build-common.xml" target="jar" inheritall="true" inheritrefs="true"/>
+	</target>
+
+	<!--
+	============================================================================
+    This installs all the server-side files contributed by this sub-sys.
+	============================================================================
+	-->
+	<target name="server-install"
+		description="Install application ${keel-sub.name} server-side into temporary deployment directory"
+		depends="-init">
+	    <ant antfile="../keel-build/build-common.xml" target="server-install" inheritall="true" inheritrefs="true"/>
+	</target>
+
+	<!--
+	============================================================================
+    This installs all the client-side files contributed by this sub-sys.
+	============================================================================
+	-->
+	<target name="client-install"
+		description="Install application ${keel-sub.name} client-side into temporary deployment directory"
+		depends="-init">
+		<ant antfile="../keel-build/build-common.xml" target="client-install" inheritall="true" inheritrefs="true"/>
+	</target>
+
+	<!--
+	============================================================================
+    This installs the server & client files contributed by this subsystem
+	============================================================================
+	-->
+	<target name="assemble"
+		description="Install application ${keel-sub.name} into temporary deployment directory"
+		depends="-init">
+		<antcall target="jar"/>
+		<antcall target="server-install"/>
+		<antcall target="client-install"/>
+	</target>
+
+	<!--
+	============================================================================
+    Shortcut to speed up build process when a particular Keel subsystem is being
+    developed.  Before running this, the "assemble-build" target in keel-build
+    should have been run at least once to assemble and deploy the rest of the
+    subsystems.  This essentially bypasses the "assemble" step of the other Keel
+    subsystems
+	============================================================================
+	-->
+    <target name="shortcut-assemble-deploy" description="Builds/assembles this subsystem, deploys entire Keel"
+		depends="assemble">
+    	<ant antfile="../keel-build/build-common.xml" target="shortcut-assemble-deploy" inheritall="true" inheritrefs="true"/>
+    </target>
+    
+	<!--
+	============================================================================
+    This generates the Javadoc for this subsystem
+	============================================================================
+	-->
+    <target name="javadoc" description="Build javadoc documentation"
+		depends="-init">
+    	<ant antfile="../keel-build/build-common.xml" target="javadoc" inheritall="true" inheritrefs="true"/>
+    </target>
+    
+	<!--
+	============================================================================
+    This installs the generated Javadoc for this module
+	============================================================================
+	-->
+    <target name="install-javadoc" description="Installs javadoc documentation"
+		depends="-init">
+    	<ant antfile="../keel-build/build-common.xml" target="install-javadoc" inheritall="true" inheritrefs="true"/>
+    </target>
+    
+	<!--
+	============================================================================
+    Creates a WAR with the docs for this module
+	============================================================================
+	-->
+	<target name="doc-war" description="Create Documentation WAR files">
+		<ant antfile="../keel-build/build-common.xml" target="doc-war" inheritall="true" inheritrefs="true"/>
+	</target>
+
+	<!--
+	============================================================================
+    This generates all the docbook documentation.  The doc
+    directory is assumed to have its own "build.xml" with a
+    "keel-doc" target.
+	============================================================================
+	-->
+	<target name="doc" description="Build documentation"
+		depends="-init">
+    	<ant antfile="../keel-build/build-common.xml" target="doc" inheritall="true" inheritrefs="true"/>
+	</target>
+    
+	<!--
+	============================================================================
+    This installs the generated Docbook for this module
+	============================================================================
+	-->
+    <target name="install-doc" description="Installs docbook documentation"
+		depends="-init">
+    	<ant antfile="../keel-build/build-common.xml" target="install-doc" inheritall="true" inheritrefs="true"/>
+    </target>
+    
+	<!--
+	============================================================================
+    This copies all the files this subsys needs to supply for a source release
+	============================================================================
+	-->	
+	<target name="release-src"
+		description="Copy all files for this module for a src-release"
+		depends="-init">
+      <ant antfile="../keel-build/build-common.xml" target="release-src" inheritall="true" inheritrefs="true"/>
+	</target>	
+
+	<!--
+	============================================================================
+    Cleans up all files from local build directory
+	============================================================================
+	-->
+	<target name="clean"
+		description="Clean all files created by this build file"
+		depends="-init">
+      <ant antfile="../keel-build/build-common.xml" target="clean" inheritall="true" inheritrefs="true"/>
+	</target>
+
+
+	<!--
+	============================================================================
+    Common initialization for all targets
+	============================================================================
+	-->
+	<target name="-init"
+		description="Common initialization for all targets"
+		depends="-input-deploy, -setup-classpath">
+	</target>
+	
+	<!--
+	============================================================================
+    Prompt the user for the prefix of the deployment properties file
+    See default-deploy.properties for an example
+	============================================================================
+	-->    
+	<target name="-input-deploy"
+		description="Reads the name of the deployment properties file"
+		unless="deploy.name">
+		<input message="Deployment name:" addproperty="deploy.name"/>
+	</target>
+
+	<!--
+	============================================================================
+    Run all available Anteater functional tests
+	============================================================================
+	-->	
+	<target name="anteater"
+		description="Run all available anteater tests"
+		depends="-init">
+      <ant antfile="../keel-build/build-common.xml" target="anteater" inheritall="true" inheritrefs="true"/>
+	</target>
+
+</project>
